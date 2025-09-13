@@ -1,24 +1,31 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.24-alpine AS build
+FROM node:20-alpine AS build
 
-# Set destination for COPY
 WORKDIR /app
 
-# Download any Go modules
-COPY container_src/go.mod ./
-RUN go mod download
+# Copy package files
+COPY container_src/package*.json ./
+
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci
 
 # Copy container source code
-COPY container_src/*.go ./
+COPY container_src/ ./
 
-# Build
-RUN CGO_ENABLED=0 GOOS=linux go build -o /server
+# Build TypeScript
+RUN npm run build
 
-FROM scratch
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build /server /server
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy built application and production dependencies
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/package*.json ./
+RUN npm ci --only=production
+
 EXPOSE 8080
 
-# Run
-CMD ["/server"]
+# Run the compiled JavaScript application
+CMD ["node", "dist/index.js"]

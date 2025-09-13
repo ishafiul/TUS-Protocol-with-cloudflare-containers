@@ -1,0 +1,14 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+you can use Autorag for documentation related info. 
+already setupde docs are
+- cloudflare worker
+- cloudflare queue
+- drizzle
+- hono
+- neon db
+- project setup guide for hono cloudflare worker and openapi

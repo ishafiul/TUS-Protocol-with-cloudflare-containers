@@ -1,4 +1,4 @@
-# Containers Starter
+# Cloudflare Containers with Node.js and Hono
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/containers-template)
 
@@ -6,9 +6,15 @@
 
 <!-- dash-content-start -->
 
-This is a [Container](https://developers.cloudflare.com/containers/) starter template.
+This is a [Container](https://developers.cloudflare.com/containers/) project using **Node.js, TypeScript, and Hono framework** instead of Go.
 
-It demonstrates basic Container configuration, launching and routing to individual container, load balancing over multiple container, running basic hooks on container status changes.
+It demonstrates:
+- Node.js TypeScript container with Hono framework
+- Container configuration, launching and routing
+- Load balancing over multiple containers
+- Health checks and environment information
+- Error handling and lifecycle hooks
+- TypeScript compilation and type safety
 
 <!-- dash-content-end -->
 
@@ -39,6 +45,23 @@ npm run dev
 ```
 
 Open [http://localhost:8787](http://localhost:8787) with your browser to see the result.
+
+## Available Endpoints
+
+- `GET /` - List all available endpoints
+- `GET /container/<ID>` - Start a Node.js container for each ID with a 2m timeout
+- `GET /container/<ID>/health` - Check container health
+- `GET /container/<ID>/env` - Show container environment info
+- `GET /lb` - Load balance requests over multiple containers
+- `GET /error` - Start a container that errors (demonstrates error handling)
+- `GET /singleton` - Get a single specific container instance
+
+## Architecture
+
+- **Worker**: TypeScript Worker using Hono framework that routes requests to containers
+- **Container**: Node.js TypeScript application using Hono framework running inside Docker containers
+- **Durable Objects**: Each container instance is backed by a Durable Object for state management
+- **Build Process**: TypeScript compilation with source maps and type declarations
 
 You can start editing your Worker by modifying `src/index.ts` and you can start
 editing your Container by editing the content of `container_src`.

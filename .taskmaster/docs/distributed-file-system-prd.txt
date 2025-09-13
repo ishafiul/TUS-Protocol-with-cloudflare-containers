@@ -1,0 +1,222 @@
+<context>
+# Overview  
+A distributed file upload, processing, and preview system built on Cloudflare infrastructure that handles large media files (videos, RAW/LOG images, and other formats) with resumable uploads, automated processing, and intelligent preview generation.
+
+This system solves the problem of efficiently uploading, processing, and serving large media files at scale while providing users with immediate preview capabilities and regional download options. It's designed for content creators, media professionals, and applications requiring robust file handling with minimal latency.
+
+The system leverages Cloudflare's edge infrastructure for global performance, uses containerized processing for scalability, and provides a modern web interface for seamless user experience.
+
+# Core Features  
+## Resumable File Upload (Tus Protocol)
+- **What it does**: Implements Tus protocol for reliable, resumable uploads of large files
+- **Why it's important**: Prevents upload failures and allows users to resume interrupted uploads
+- **How it works**: Cloudflare Worker handles Tus protocol, stores chunks in R2, reassembles on completion
+
+## Intelligent File Processing Pipeline
+- **What it does**: Automatically processes uploaded files based on type (video/image/other)
+- **Why it's important**: Converts files to web-optimized formats and generates previews
+- **How it works**: Queue-based system with containerized workers using ffmpeg/libraw/sharp
+
+## Multi-Format Preview System
+- **What it does**: Generates and serves optimized previews for different file types
+- **Why it's important**: Enables instant preview without downloading full files
+- **How it works**: HLS streaming for videos, JPEG/WebP for images, with regional CDN distribution
+
+## Regional Download Management
+- **What it does**: Provides optimized download links based on user location
+- **Why it's important**: Reduces download latency and improves user experience
+- **How it works**: R2 integration with Cloudflare's global network
+
+## Batch Operations
+- **What it does**: Allows multi-select and batch download of files
+- **Why it's important**: Improves efficiency for users managing multiple files
+- **How it works**: Frontend state management with bulk API operations
+
+# User Experience  
+## User Personas
+- **Content Creators**: Upload large video files and RAW images, need quick previews
+- **Media Professionals**: Manage extensive media libraries with batch operations
+- **Application Developers**: Integrate file handling into their applications
+
+## Key User Flows
+1. **Upload Flow**: Drag & drop → Tus upload → automatic processing → preview available
+2. **Preview Flow**: Click file → instant preview → navigation controls → download options
+3. **Management Flow**: Browse files → multi-select → batch download → organize
+
+## UI/UX Considerations
+- **Progressive Loading**: Infinite scroll with lazy loading for large file lists
+- **Responsive Design**: Works across desktop and mobile devices
+- **Accessibility**: Keyboard navigation and screen reader support
+- **Performance**: Optimized for large file lists and smooth interactions
+</context>
+
+<PRD>
+# Technical Architecture  
+## System Components
+- **Frontend**: TypeScript-based web application served via Cloudflare Assets
+- **Upload Service**: Cloudflare Worker with Hono framework using hono-r2-tus-uploader package
+- **Processing Queue**: Cloudflare Queues for job management and concurrency control
+- **Processing Workers**: Cloudflare Containers with Hono and Node.js running ffmpeg/libraw/sharp
+- **Database**: Neon Postgres for metadata and file references
+- **CDN**: Cloudflare R2 with global edge distribution
+- **Asset Delivery**: Cloudflare Assets for static frontend files (HTML, CSS, JS)
+
+## Data Models
+### Files Table
+```sql
+CREATE TABLE files (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  original_key TEXT NOT NULL,
+  file_type VARCHAR(20) NOT NULL, -- 'video', 'image', 'other'
+  mime_type VARCHAR(100) NOT NULL,
+  file_size BIGINT NOT NULL,
+  upload_status VARCHAR(20) DEFAULT 'uploading', -- 'uploading', 'processing', 'completed', 'failed'
+  processing_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+  preview_key TEXT, -- R2 key for preview file
+  hls_playlist_key TEXT, -- R2 key for HLS playlist (videos only)
+  metadata JSONB, -- Additional file metadata
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Processing Jobs Table
+```sql
+CREATE TABLE processing_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  file_id UUID REFERENCES files(id),
+  job_type VARCHAR(20) NOT NULL, -- 'video_transcode', 'image_preview', 'other'
+  status VARCHAR(20) DEFAULT 'queued', -- 'queued', 'processing', 'completed', 'failed'
+  queue_message_id TEXT,
+  error_message TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  started_at TIMESTAMP,
+  completed_at TIMESTAMP
+);
+```
+
+## APIs and Integrations
+### Upload API
+- `POST /api/upload/init` - Initialize Tus upload session
+- `POST /api/upload/chunk` - Upload file chunk
+- `POST /api/upload/complete` - Complete upload and trigger processing
+
+### Processing API
+- `GET /api/files` - List user files with pagination
+- `GET /api/files/:id/preview` - Get preview URL
+- `GET /api/files/:id/download` - Get download URL
+- `POST /api/files/batch-download` - Generate batch download links
+
+### Webhook Endpoints
+- `POST /webhook/processing-complete` - Processing completion notification
+- `POST /webhook/processing-failed` - Processing failure notification
+
+## Infrastructure Requirements
+- **Cloudflare Workers**: Edge compute for upload handling and API (Hono framework)
+- **Cloudflare R2**: Object storage for files and processed outputs
+- **Cloudflare Queues**: Message queue for processing jobs
+- **Cloudflare Containers**: Containerized processing workers (Hono + Node.js)
+- **Cloudflare Assets**: Static file delivery for frontend (HTML, CSS, JS)
+- **Neon Postgres**: Relational database for metadata
+- **Cloudflare CDN**: Global content delivery
+
+# Development Roadmap  
+## Phase 1: Core Infrastructure (MVP)
+- Set up Cloudflare Workers with Hono framework and hono-r2-tus-uploader
+- Implement R2 storage integration
+- Create basic Neon database schema
+- Build TypeScript frontend served via Cloudflare Assets
+- Implement basic file listing
+
+## Phase 2: Processing Pipeline
+- Set up Cloudflare Queues
+- Implement containerized processing workers (Hono + Node.js)
+- Add ffmpeg for video processing (HLS generation)
+- Add libraw/sharp for image processing
+- Create processing status tracking
+
+## Phase 3: Preview System
+- Implement TypeScript video player with Mux integration
+- Build TypeScript image viewer with navigation
+- Add preview generation for all file types
+- Implement regional download optimization
+
+## Phase 4: Advanced Features
+- Add TypeScript batch operations (multi-select, batch download)
+- Implement infinite scroll with lazy loading
+- Add file management features (delete, organize)
+- Build TypeScript admin dashboard for monitoring
+
+## Phase 5: Optimization & Scale
+- Implement advanced caching strategies
+- Add analytics and monitoring
+- Optimize processing pipeline performance
+- Add advanced user management features
+
+# Logical Dependency Chain
+## Foundation Layer (Build First)
+1. **Database Schema**: Neon Postgres setup with core tables
+2. **R2 Storage**: Configure buckets and access policies
+3. **Basic Worker**: Simple Cloudflare Worker for API endpoints
+
+## Upload Layer (Core Functionality)
+4. **Tus Protocol**: Implement resumable upload handling
+5. **File Storage**: R2 integration for original file storage
+6. **Upload UI**: Basic drag-and-drop interface
+
+## Processing Layer (Automation)
+7. **Queue System**: Cloudflare Queues setup and job management
+8. **Container Workers**: Processing containers with ffmpeg/libraw
+9. **Job Orchestration**: Queue consumption and concurrency control
+
+## Preview Layer (User Experience)
+10. **Video Processing**: HLS generation and Mux integration
+11. **Image Processing**: Preview generation and optimization
+12. **Preview UI**: Image viewer and video player components
+
+## Management Layer (Advanced Features)
+13. **File Management**: List, search, and organize files
+14. **Batch Operations**: Multi-select and batch download
+15. **Performance Optimization**: Lazy loading and caching
+
+# Risks and Mitigations  
+## Technical Challenges
+- **Large File Processing**: Mitigate with chunked processing and progress tracking
+- **Queue Concurrency**: Implement proper job queuing and retry mechanisms
+- **Storage Costs**: Optimize with intelligent cleanup and compression
+- **Global Latency**: Use Cloudflare's edge network for optimal performance
+
+## MVP Considerations
+- **Start Simple**: Focus on core upload and basic preview functionality
+- **Iterative Processing**: Build processing pipeline incrementally
+- **User Feedback**: Implement basic features first, then enhance based on usage
+
+## Resource Constraints
+- **Processing Power**: Use Cloudflare Containers with auto-scaling
+- **Storage Limits**: Implement file lifecycle management
+- **API Rate Limits**: Add proper rate limiting and caching
+
+# Appendix  
+## Research Findings
+- Tus protocol provides reliable resumable uploads for large files
+- [hono-r2-tus-uploader](https://github.com/Cap-go/hono-r2-tus-uploader) provides proven Tus implementation for Cloudflare Workers with R2
+- Cloudflare R2 offers cost-effective object storage with global distribution
+- Cloudflare Assets provides efficient static file delivery
+- Hono framework offers lightweight, fast web framework for TypeScript
+- HLS (HTTP Live Streaming) is the standard for adaptive video streaming
+- libraw provides comprehensive RAW image processing capabilities
+- Mux provides reliable video streaming infrastructure
+
+## Technical Specifications
+- **Frontend Technology**: TypeScript with Cloudflare Assets delivery
+- **Backend Framework**: Hono framework for Workers and Containers
+- **Upload Protocol**: Tus resumable uploads via hono-r2-tus-uploader
+- **Supported Video Formats**: MP4, MOV, AVI, MKV
+- **Supported Image Formats**: RAW (CR2, NEF, ARW), LOG, JPEG, PNG, WebP
+- **Processing Concurrency**: Maximum 3 simultaneous processing jobs
+- **File Size Limits**: Up to 5GB per file (configurable)
+- **Preview Formats**: HLS for videos, JPEG/WebP for images
+- **Regional Distribution**: Global CDN with edge caching
+- **Container Runtime**: Node.js with Hono framework
+</PRD>

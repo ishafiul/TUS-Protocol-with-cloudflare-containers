@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare Container Worker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #f38020;
+            text-align: center;
+        }
+        .endpoint {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #f38020;
+            border-radius: 4px;
+        }
+        code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Cloudflare Container Worker</h1>
+        <p>This is a static HTML file served from the public folder!</p>
+        
+        <h2>Available Endpoints:</h2>
+        <div class="endpoint">
+            <strong>Container Routes:</strong><br>
+            <code>GET /container/{id}</code> - Start a container for specific ID<br>
+            <code>GET /container/{id}/health</code> - Check container health<br>
+            <code>GET /container/{id}/env</code> - Show container environment
+        </div>
+        
+        <div class="endpoint">
+            <strong>Utility Routes:</strong><br>
+            <code>GET /lb</code> - Load balance requests<br>
+            <code>GET /singleton</code> - Get single container instance<br>
+            <code>GET /error</code> - Test error handling
+        </div>
+        
+        <p><em>Try accessing <code>/container/test</code> to see your container in action!</em></p>
+    </div>
+</body>
+</html>

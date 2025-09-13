@@ -1,0 +1,804 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Neon Postgres Database Schema",
+        "description": "Create and configure the Neon Postgres database with the required tables for files and processing jobs",
+        "details": "Set up Neon Postgres database with connection pooling. Create tables: files (id, user_id, original_key, file_type, mime_type, file_size, upload_status, processing_status, preview_key, hls_playlist_key, metadata, created_at, updated_at) and processing_jobs (id, file_id, job_type, status, queue_message_id, error_message, created_at, started_at, completed_at). Use UUID primary keys with gen_random_uuid(). Add proper indexes on user_id, upload_status, and processing_status. Configure connection string in environment variables.",
+        "testStrategy": "Verify database connection, test table creation, validate constraints and indexes, test UUID generation and foreign key relationships",
+        "priority": "high",
+        "dependencies": [],
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Setup Neon Account and Database Connection Configuration",
+            "description": "Create Neon Postgres account, provision database instance, and configure connection pooling with environment variables",
+            "dependencies": [],
+            "details": "Sign up for Neon Postgres account and create new database instance. Configure connection pooling settings for optimal performance. Set up environment variables for database connection string including host, port, database name, username, and password. Test basic database connectivity and verify SSL configuration.",
+            "status": "in-progress",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Create Files Table with Schema and Constraints",
+            "description": "Design and create the files table with proper data types, UUID primary keys, and field constraints",
+            "dependencies": [
+              "1.1"
+            ],
+            "details": "Create files table with columns: id (UUID primary key using gen_random_uuid()), user_id (UUID), original_key (VARCHAR), file_type (VARCHAR), mime_type (VARCHAR), file_size (BIGINT), upload_status (VARCHAR), processing_status (VARCHAR), preview_key (VARCHAR), hls_playlist_key (VARCHAR), metadata (JSONB), created_at (TIMESTAMP), updated_at (TIMESTAMP). Add NOT NULL constraints where appropriate and set default values for timestamps.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Create Processing Jobs Table with Foreign Key Relationships",
+            "description": "Design and create the processing_jobs table with proper relationships to the files table",
+            "dependencies": [
+              "1.2"
+            ],
+            "details": "Create processing_jobs table with columns: id (UUID primary key using gen_random_uuid()), file_id (UUID foreign key referencing files.id), job_type (VARCHAR), status (VARCHAR), queue_message_id (VARCHAR), error_message (TEXT), created_at (TIMESTAMP), started_at (TIMESTAMP), completed_at (TIMESTAMP). Add foreign key constraint with CASCADE options and proper indexing on file_id for relationship queries.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Add Performance Optimization Indexes",
+            "description": "Create database indexes on frequently queried columns for optimal query performance",
+            "dependencies": [
+              "1.3"
+            ],
+            "details": "Create indexes on files table: user_id for user-specific queries, upload_status for filtering uploads, processing_status for job management queries. Create indexes on processing_jobs table: file_id for relationship queries, status for job status filtering, job_type for processing type queries. Add composite indexes where beneficial for common query patterns.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Test Database Connectivity and Validate Schema",
+            "description": "Perform comprehensive testing of database connection, schema validation, and constraint verification",
+            "dependencies": [
+              "1.4"
+            ],
+            "details": "Test database connectivity using the configured connection string and verify connection pooling works correctly. Validate all table schemas match requirements including data types, constraints, and relationships. Test UUID generation with gen_random_uuid() function. Verify foreign key constraints work properly. Test all indexes are created and functioning. Run sample INSERT, UPDATE, SELECT, and DELETE operations to ensure schema integrity.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Configure Cloudflare R2 Storage Buckets",
+        "description": "Set up R2 storage buckets for original files, processed outputs, and previews with proper access policies",
+        "details": "Create three R2 buckets: 'originals' for uploaded files, 'processed' for transcoded videos/optimized images, and 'previews' for thumbnails/preview content. Configure CORS policies to allow uploads from the frontend domain. Set up bucket lifecycle policies for automatic cleanup of incomplete uploads after 7 days. Generate R2 API tokens with appropriate permissions (read/write for workers, read-only for CDN). Configure custom domain for public access to processed files.",
+        "testStrategy": "Test bucket creation, verify CORS configuration, validate upload/download permissions, test lifecycle policies, confirm custom domain routing",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Three R2 Buckets with Naming Conventions",
+            "description": "Create the three required R2 buckets ('originals', 'processed', 'previews') using Cloudflare dashboard or API with consistent naming conventions and initial configuration",
+            "dependencies": [],
+            "details": "Use Cloudflare dashboard or wrangler CLI to create three R2 buckets: 'originals' for uploaded files, 'processed' for transcoded videos and optimized images, and 'previews' for thumbnails and preview content. Apply consistent naming conventions and set initial bucket configurations including region selection for optimal performance.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Configure CORS Policies for Frontend Access",
+            "description": "Set up CORS policies on all three R2 buckets to allow uploads and access from the frontend domain with proper HTTP methods and headers",
+            "dependencies": [
+              "2.1"
+            ],
+            "details": "Configure CORS policies for each bucket to allow GET, POST, PUT, DELETE methods from the frontend domain. Set appropriate allowed headers including Content-Type, Authorization, and custom upload headers. Configure preflight request handling and set proper Access-Control-Allow-Origin headers.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Set Up Lifecycle Policies for Cleanup",
+            "description": "Configure bucket lifecycle policies to automatically clean up incomplete uploads after 7 days and manage storage optimization",
+            "dependencies": [
+              "2.1"
+            ],
+            "details": "Create lifecycle rules for each bucket to automatically delete incomplete multipart uploads after 7 days. Set up additional rules for archiving or deleting old files based on business requirements. Configure transition rules if needed for cost optimization.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Generate API Tokens with Proper Permissions",
+            "description": "Create R2 API tokens with appropriate permissions for different use cases (read/write for workers, read-only for CDN)",
+            "dependencies": [
+              "2.1"
+            ],
+            "details": "Generate R2 API tokens with granular permissions: full read/write access for Cloudflare Workers to handle uploads and processing, read-only tokens for CDN access to serve processed files. Document token purposes and store securely in environment variables.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Configure Custom Domain for CDN Access",
+            "description": "Set up custom domain configuration for public access to processed files through Cloudflare CDN with proper caching rules",
+            "dependencies": [
+              "2.1",
+              "2.4"
+            ],
+            "details": "Configure custom domain for R2 bucket access through Cloudflare CDN. Set up DNS records and SSL certificates. Configure caching rules for different file types and implement proper cache headers for optimal performance. Set up domain routing for the 'processed' and 'previews' buckets.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Test All Bucket Operations and Policies",
+            "description": "Comprehensive testing of all bucket configurations, CORS policies, lifecycle rules, API tokens, and custom domain functionality",
+            "dependencies": [
+              "2.2",
+              "2.3",
+              "2.4",
+              "2.5"
+            ],
+            "details": "Test bucket creation and access, verify CORS configuration with actual frontend requests, validate upload/download permissions with different API tokens, test lifecycle policy execution, confirm custom domain routing and CDN caching. Document test results and troubleshoot any issues.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Initialize Cloudflare Worker for API Endpoints",
+        "description": "Create the foundational Cloudflare Worker with Hono framework and TypeScript for better performance and developer experience",
+        "status": "pending",
+        "dependencies": [
+          1,
+          2
+        ],
+        "priority": "high",
+        "details": "Set up Cloudflare Worker using Wrangler CLI with TypeScript and Hono framework. Configure wrangler.toml with environment variables for database connection, R2 bucket names, and API keys. Implement routing using Hono framework for enhanced performance, better TypeScript support, and improved middleware handling. Set up Hono middleware for CORS, authentication, error handling, and request validation. Create environment bindings for R2 buckets and database connections. Implement basic health check endpoint at /api/health with proper Hono response handling.",
+        "testStrategy": "Deploy worker and test Hono routing performance, verify environment variable access through Hono context, test CORS middleware functionality, validate error handling middleware responses, confirm R2 and database connectivity through Hono bindings, test TypeScript compilation and hot reloading",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Initialize Cloudflare Worker project with Hono",
+            "description": "Set up new Cloudflare Worker project using Wrangler CLI with Hono framework and TypeScript",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Install and configure Hono framework",
+            "description": "Install Hono framework, configure TypeScript types, and set up basic Hono app structure",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Configure wrangler.toml with environment bindings",
+            "description": "Set up wrangler.toml with R2 bucket bindings, database connections, and environment variables",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement Hono middleware stack",
+            "description": "Set up CORS, authentication, error handling, and request validation middleware using Hono's middleware system",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Create basic routing structure with Hono",
+            "description": "Implement route handlers using Hono's routing system with proper TypeScript types and context handling",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement health check endpoint",
+            "description": "Create /api/health endpoint using Hono with proper response formatting and environment connectivity checks",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Set up development and deployment scripts",
+            "description": "Configure package.json scripts for local development with Hono hot reloading and production deployment",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Implement Tus Protocol for Resumable Uploads",
+        "description": "Integrate hono-r2-tus-uploader package with our Hono-based Cloudflare Worker for handling resumable file uploads",
+        "status": "pending",
+        "dependencies": [
+          3
+        ],
+        "priority": "high",
+        "details": "Integrate the hono-r2-tus-uploader package into our existing Hono worker to provide Tus v1.0.0 protocol support. Configure the package with our R2 bucket for file storage and implement proper routing for Tus endpoints (/upload/*). Set up upload validation for file size limits (5GB max) and supported MIME types. Configure upload metadata storage and expiration settings. Implement upload completion handlers to move files from temp to permanent storage and trigger the processing queue. Customize the package configuration to match our application's requirements including CORS settings and authentication integration.",
+        "testStrategy": "Test Tus protocol compliance using tus-js-client, verify resumable uploads with network interruptions, validate package integration with existing Hono routes, test upload size limits and MIME type validation, verify upload completion triggers",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Install and configure hono-r2-tus-uploader package",
+            "description": "Add the hono-r2-tus-uploader package to the project and configure it with R2 bucket settings",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Integrate Tus routes with existing Hono worker",
+            "description": "Set up Tus upload routes (/upload/*) in the main Hono application and configure middleware",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Configure upload validation and limits",
+            "description": "Set up file size limits (5GB max), MIME type validation, and other upload constraints using package configuration",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement upload completion handlers",
+            "description": "Configure callbacks for upload completion to move files to permanent storage and trigger processing queue",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Set up CORS and authentication integration",
+            "description": "Configure CORS settings for Tus endpoints and integrate with existing authentication middleware",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Test Tus protocol compliance and integration",
+            "description": "Verify the package integration works correctly with tus-js-client and test resumable upload functionality",
+            "status": "pending",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Build File Upload Frontend Interface",
+        "description": "Create TypeScript frontend with drag-and-drop upload interface using Tus protocol, served via Cloudflare Assets",
+        "status": "pending",
+        "dependencies": [
+          4
+        ],
+        "priority": "medium",
+        "details": "Build vanilla TypeScript frontend application served through Cloudflare Assets for optimal performance. Install tus-js-client for resumable uploads. Create upload component with native drag-and-drop functionality without React dependencies. Implement upload progress tracking with real-time DOM updates. Add file validation (size, type) before upload starts. Create upload queue management for multiple files using TypeScript classes. Use native browser APIs and localStorage for state management of upload progress and file list. Implement retry logic for failed uploads. Style with vanilla CSS or lightweight CSS framework for modern UI. Structure code with TypeScript modules and build with bundler like Vite or esbuild for Cloudflare Assets deployment.",
+        "testStrategy": "Test drag-and-drop functionality across browsers, verify upload progress tracking with DOM updates, test multiple file uploads, validate file type restrictions, test upload resumption after page refresh, verify Cloudflare Assets deployment and performance",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up TypeScript project structure and build tools",
+            "description": "Initialize TypeScript project with proper configuration, install dependencies, and configure build tools for Cloudflare Assets deployment",
+            "dependencies": [],
+            "details": "Create package.json with TypeScript, tus-js-client, and build tool dependencies. Set up tsconfig.json with proper compiler options for browser target. Configure Vite or esbuild for bundling and optimization. Create project folder structure with src/, dist/, and assets/ directories. Set up build scripts for development and production. Configure TypeScript path mapping and module resolution.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement drag-and-drop functionality with native APIs",
+            "description": "Create drag-and-drop upload zone using native browser APIs without framework dependencies",
+            "dependencies": [
+              "5.1"
+            ],
+            "details": "Implement HTML drag-and-drop zone with proper event handlers (dragover, dragenter, dragleave, drop). Add visual feedback for drag states using CSS classes. Handle file selection from both drag-and-drop and file input. Implement drag-and-drop validation to accept only files. Add TypeScript interfaces for drag events and file handling. Create responsive upload zone with proper styling.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Integrate tus-js-client for resumable uploads",
+            "description": "Configure and integrate tus-js-client library for resumable file uploads with proper TypeScript typing",
+            "dependencies": [
+              "5.2"
+            ],
+            "details": "Install and configure tus-js-client with TypeScript definitions. Create TusUploader class wrapper with proper error handling. Configure tus client options (endpoint URL, chunk size, metadata). Implement upload initialization and resumption logic. Add TypeScript interfaces for tus upload options and callbacks. Handle tus protocol errors and connection issues.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Create upload progress tracking and UI updates",
+            "description": "Implement real-time upload progress tracking with DOM updates and visual feedback",
+            "dependencies": [
+              "5.3"
+            ],
+            "details": "Create progress bar components with percentage display using native DOM manipulation. Implement real-time progress updates using tus-js-client callbacks. Add upload speed calculation and ETA display. Create upload status indicators (uploading, paused, completed, error). Implement DOM updates without virtual DOM using TypeScript classes. Add animation and transitions for smooth UI updates.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Add file validation and queue management",
+            "description": "Implement file validation logic and upload queue management system using TypeScript classes",
+            "dependencies": [
+              "5.4"
+            ],
+            "details": "Create file validation functions for size limits and MIME types. Implement UploadQueue class for managing multiple file uploads. Add queue operations (add, remove, pause, resume) with TypeScript methods. Create file list UI with individual file controls. Implement localStorage persistence for upload queue state. Add validation error messages and user feedback.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement retry logic and error handling",
+            "description": "Add comprehensive error handling and retry mechanisms for failed uploads",
+            "dependencies": [
+              "5.5"
+            ],
+            "details": "Implement exponential backoff retry logic for failed uploads. Create error classification system (network, server, client errors). Add manual retry buttons and automatic retry configuration. Implement upload resumption after page refresh using localStorage. Create error message display and user notifications. Add network connectivity detection and handling.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Deploy to Cloudflare Assets with optimization",
+            "description": "Optimize build output and deploy the frontend application to Cloudflare Assets",
+            "dependencies": [
+              "5.6"
+            ],
+            "details": "Configure build optimization for production (minification, tree shaking, code splitting). Set up Cloudflare Assets deployment configuration. Implement asset optimization (CSS/JS compression, image optimization). Configure caching headers and CDN settings. Test deployment and verify performance metrics. Set up CI/CD pipeline for automated deployments to Cloudflare Assets.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Setup Cloudflare Queues for Processing Jobs",
+        "description": "Configure Cloudflare Queues system for managing file processing jobs with proper concurrency control",
+        "details": "Create Cloudflare Queue named 'file-processing' with dead letter queue for failed jobs. Configure queue consumer in Worker with concurrency limit of 3 simultaneous jobs. Implement job message structure with file_id, job_type (video_transcode, image_preview, other), and processing parameters. Set up retry logic with exponential backoff (max 3 retries). Create queue producer functions to enqueue jobs after successful upload. Add job status tracking in database with queue_message_id for correlation.",
+        "testStrategy": "Test queue message production and consumption, verify concurrency limits, test retry mechanism with failed jobs, validate dead letter queue functionality, confirm job status tracking",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Cloudflare Queue with Dead Letter Queue Configuration",
+            "description": "Set up the main 'file-processing' queue and configure dead letter queue for handling failed jobs",
+            "dependencies": [],
+            "details": "Create Cloudflare Queue named 'file-processing' using Wrangler CLI or dashboard. Configure dead letter queue settings to capture messages that fail after maximum retry attempts. Set up queue bindings in wrangler.toml configuration file. Configure queue settings including message retention period, visibility timeout, and dead letter queue threshold. Test queue creation and verify dead letter queue functionality.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement Queue Consumer with Concurrency Controls",
+            "description": "Build the queue consumer in Cloudflare Worker with proper concurrency management",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "Implement queue consumer handler in Cloudflare Worker to process incoming messages. Configure concurrency limit of 3 simultaneous jobs to prevent resource exhaustion. Set up proper message acknowledgment and error handling. Implement consumer logic to route different job types to appropriate processing functions. Add logging and monitoring for queue consumption metrics.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Design Job Message Structure and Validation",
+            "description": "Create standardized message format and validation schema for queue jobs",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "Define job message structure with required fields: file_id, job_type (video_transcode, image_preview, other), and processing parameters. Create TypeScript interfaces for message types and validation schemas. Implement message validation functions to ensure data integrity. Design flexible parameter structure to accommodate different processing requirements. Create message serialization and deserialization utilities.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Set Up Retry Logic with Exponential Backoff",
+            "description": "Implement robust retry mechanism with exponential backoff for failed jobs",
+            "dependencies": [
+              "6.2",
+              "6.3"
+            ],
+            "details": "Implement retry logic with exponential backoff strategy (initial delay, multiplier, max delay). Configure maximum of 3 retry attempts before sending to dead letter queue. Add retry count tracking and failure reason logging. Implement different retry strategies based on error types (temporary vs permanent failures). Set up monitoring and alerting for retry patterns and failure rates.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Integrate Job Status Tracking with Database",
+            "description": "Implement comprehensive job status tracking system with database correlation",
+            "dependencies": [
+              "6.3"
+            ],
+            "details": "Create database schema for job status tracking with queue_message_id correlation. Implement job status updates (queued, processing, completed, failed) throughout the processing lifecycle. Create producer functions to enqueue jobs after successful file upload. Add job progress tracking and estimated completion time. Implement cleanup procedures for completed job records and monitoring dashboard for job statistics.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Create Containerized Processing Workers",
+        "description": "Build Docker containers with Hono framework, Node.js, ffmpeg, libraw, and sharp for file processing deployed on Cloudflare Containers",
+        "status": "pending",
+        "dependencies": [
+          6
+        ],
+        "priority": "high",
+        "details": "Create multi-stage Dockerfile with Alpine Linux base. Install Node.js 18+ with Hono framework for consistent worker architecture. Install ffmpeg 6.0+ with H.264/H.265 codecs, libraw 0.21+, and sharp 0.32+. Create Hono-based processing worker application that consumes from Cloudflare Queue with proper routing and middleware. Implement video transcoding to HLS format (multiple bitrates: 720p, 1080p) with 6-second segments using ffmpeg. Add image processing for RAW files using libraw, generate JPEG/WebP previews with sharp. Include error handling middleware and progress reporting back to queue using Hono's context. Configure container with 2GB memory limit and auto-scaling. Maintain consistency with main worker architecture by using Hono framework patterns.",
+        "testStrategy": "Test container build and deployment, verify Hono framework integration and routing, test ffmpeg video processing with sample files, test libraw RAW image processing, validate sharp image optimization, test memory usage and scaling, verify queue consumption through Hono endpoints",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Multi-Stage Dockerfile with Alpine Base",
+            "description": "Design and implement a multi-stage Dockerfile using Alpine Linux as the base image for optimal container size and security",
+            "dependencies": [],
+            "details": "Create Dockerfile with multi-stage build process. Use Alpine Linux latest stable version as base image. Set up build stage for compiling dependencies and runtime stage for final container. Configure proper user permissions and security settings. Optimize layer caching for faster builds. Set working directory and environment variables. Include health check configuration.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Install and Configure Node.js with Hono Framework",
+            "description": "Install Node.js 18+ and set up Hono framework for consistent worker architecture",
+            "dependencies": [
+              "7.1"
+            ],
+            "details": "Install Node.js 18+ in the container using Alpine package manager. Set up npm/yarn for package management. Install Hono framework and configure basic application structure. Set up TypeScript configuration for consistency with main worker. Configure package.json with required dependencies and build scripts. Implement basic Hono app initialization with middleware setup.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Install FFmpeg with Required Codecs",
+            "description": "Install FFmpeg 6.0+ with H.264/H.265 codecs for video processing capabilities",
+            "dependencies": [
+              "7.1"
+            ],
+            "details": "Install FFmpeg 6.0+ from Alpine repositories or compile from source if needed. Configure H.264 and H.265 codec support. Install additional codec libraries (libx264, libx265, libvpx). Verify codec availability and functionality. Set up FFmpeg binary paths and environment variables. Test basic video processing capabilities.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Install Libraw and Sharp for Image Processing",
+            "description": "Install libraw 0.21+ and sharp 0.32+ libraries for comprehensive image processing",
+            "dependencies": [
+              "7.1",
+              "7.2"
+            ],
+            "details": "Install libraw 0.21+ for RAW image file processing. Install sharp 0.32+ for high-performance image optimization. Configure native dependencies and compilation flags. Set up proper library linking and paths. Install supporting image format libraries (libjpeg, libpng, libwebp). Verify installation and basic functionality of both libraries.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement Hono-Based Queue Consumer Application",
+            "description": "Create Hono-based application that consumes from Cloudflare Queue with proper routing and middleware",
+            "dependencies": [
+              "7.2"
+            ],
+            "details": "Implement Hono application structure with queue consumer functionality. Set up routing for processing endpoints. Configure middleware for error handling, logging, and request validation. Implement Cloudflare Queue integration for message consumption. Set up proper context handling and dependency injection. Create base processing worker class with Hono context integration.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Add Video Transcoding Pipeline with HLS Output",
+            "description": "Implement video transcoding to HLS format with multiple bitrates using FFmpeg",
+            "dependencies": [
+              "7.3",
+              "7.5"
+            ],
+            "details": "Implement video transcoding pipeline using FFmpeg. Configure HLS output with multiple bitrates (720p, 1080p). Set up 6-second segment duration for optimal streaming. Create adaptive bitrate streaming playlists. Implement progress tracking and reporting. Add error handling for transcoding failures. Integrate with Hono context for progress updates back to queue.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Add Image Processing Pipeline for RAW Files",
+            "description": "Implement image processing pipeline for RAW files using libraw and sharp for preview generation",
+            "dependencies": [
+              "7.4",
+              "7.5"
+            ],
+            "details": "Implement RAW image processing using libraw for file parsing and conversion. Create JPEG and WebP preview generation using sharp. Configure image optimization settings for different output formats. Implement thumbnail generation with multiple sizes. Add metadata extraction and preservation. Set up error handling for unsupported RAW formats. Integrate progress reporting with Hono context.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 8,
+            "title": "Configure Container Deployment and Scaling on Cloudflare",
+            "description": "Configure container with memory limits and auto-scaling for Cloudflare Container deployment",
+            "dependencies": [
+              "7.6",
+              "7.7"
+            ],
+            "details": "Configure container resource limits with 2GB memory constraint. Set up auto-scaling configuration for Cloudflare Containers. Configure environment variables and secrets management. Set up container health checks and monitoring. Configure deployment pipeline and CI/CD integration. Implement container logging and metrics collection. Test deployment and scaling behavior under load.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Implement Video Processing Pipeline",
+        "description": "Build video transcoding system that generates HLS streams and thumbnails for video files",
+        "details": "Create video processing module using ffmpeg to generate HLS playlists with adaptive bitrate streaming. Generate multiple quality levels (360p, 720p, 1080p) based on source resolution. Create 6-second segments for optimal streaming performance. Generate thumbnail images at 0%, 25%, 50%, 75% timestamps. Store HLS files (.m3u8 playlist and .ts segments) in R2 'processed' bucket with proper directory structure. Update database with hls_playlist_key and preview_key. Implement progress tracking and error handling with detailed logging.",
+        "testStrategy": "Test HLS generation with various video formats (MP4, MOV, AVI), verify adaptive bitrate streaming, test thumbnail generation, validate HLS playback in browsers, test error handling for corrupted videos",
+        "priority": "medium",
+        "dependencies": [
+          7
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up ffmpeg video analysis and quality detection",
+            "description": "Implement video analysis module to detect source video properties and determine optimal quality levels for transcoding",
+            "dependencies": [],
+            "details": "Create video analysis service using ffmpeg to extract video metadata including resolution, bitrate, codec, duration, and frame rate. Implement quality detection logic to determine which output resolutions to generate (360p, 720p, 1080p) based on source resolution. Add validation for supported video formats (MP4, MOV, AVI) and codec compatibility. Create utility functions for video property extraction and quality level mapping.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement HLS playlist generation with multiple bitrates",
+            "description": "Build HLS transcoding system that generates adaptive bitrate streaming playlists with multiple quality levels",
+            "dependencies": [
+              "8.1"
+            ],
+            "details": "Implement ffmpeg-based HLS transcoding to generate multiple bitrate streams (360p at 800kbps, 720p at 2500kbps, 1080p at 5000kbps). Create master playlist (.m3u8) that references individual quality streams. Configure proper HLS parameters including target duration, playlist type, and codec settings. Implement adaptive bitrate logic that adjusts quality levels based on source video resolution and ensures optimal streaming performance.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Create video segmentation with 6-second chunks",
+            "description": "Implement video segmentation system that creates 6-second HLS segments for optimal streaming performance",
+            "dependencies": [
+              "8.2"
+            ],
+            "details": "Configure ffmpeg HLS segmentation to create 6-second .ts segments for each quality level. Implement segment naming convention with sequential numbering. Add segment list management in individual playlist files. Ensure proper segment duration consistency and handle edge cases for video endings. Configure segment encryption options and implement proper segment indexing for seeking functionality.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Generate thumbnail extraction at specific timestamps",
+            "description": "Build thumbnail generation system that extracts preview images at 0%, 25%, 50%, and 75% video timestamps",
+            "dependencies": [
+              "8.1"
+            ],
+            "details": "Implement ffmpeg-based thumbnail extraction at specific video timestamps (0%, 25%, 50%, 75% of video duration). Generate thumbnails in JPEG format with consistent dimensions (320x180) while maintaining aspect ratio. Create thumbnail naming convention and organize files for easy retrieval. Add error handling for thumbnail generation failures and implement fallback thumbnail creation from first frame if timestamp extraction fails.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement R2 storage organization and upload",
+            "description": "Create storage system for organizing and uploading HLS files and thumbnails to R2 bucket with proper directory structure",
+            "dependencies": [
+              "8.3",
+              "8.4"
+            ],
+            "details": "Design directory structure for R2 'processed' bucket: /hls/{file_id}/{quality}/ for segments and playlists, /thumbnails/{file_id}/ for preview images. Implement batch upload functionality for HLS segments and playlists. Add proper content-type headers for .m3u8 and .ts files. Create cleanup mechanism for failed processing attempts. Implement atomic upload process to ensure consistency and add retry logic for upload failures.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Add progress tracking and error handling with database updates",
+            "description": "Implement comprehensive progress tracking, error handling, and database updates for the video processing pipeline",
+            "dependencies": [
+              "8.5"
+            ],
+            "details": "Create progress tracking system that monitors transcoding, segmentation, and upload phases with percentage completion. Implement detailed error handling with specific error codes and messages for different failure scenarios. Add database updates to store hls_playlist_key and preview_key upon successful processing. Create logging system with structured logs for debugging and monitoring. Implement processing status updates (processing, completed, failed) and add cleanup procedures for failed processing attempts.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Implement Image Processing Pipeline",
+        "description": "Build image processing system for RAW files, LOG formats, and standard images with preview generation",
+        "details": "Create image processing module using libraw for RAW formats (CR2, NEF, ARW) and sharp for optimization. Convert RAW files to high-quality JPEG (95% quality) and generate WebP versions for web delivery. Create multiple preview sizes: thumbnail (200x200), medium (800x600), and large (1920x1080) with aspect ratio preservation. Implement EXIF data extraction and storage in metadata JSONB field. Handle LOG format images with proper color space conversion. Store processed images in R2 'processed' bucket with organized folder structure by file type and size.",
+        "testStrategy": "Test RAW file processing with various camera formats, verify EXIF data extraction, test WebP generation and quality, validate preview size generation, test LOG format handling",
+        "priority": "medium",
+        "dependencies": [
+          7
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set up libraw for RAW format processing and conversion",
+            "description": "Install and configure libraw library to handle RAW image formats (CR2, NEF, ARW) and implement basic RAW to JPEG conversion functionality",
+            "dependencies": [],
+            "details": "Install libraw dependencies and Node.js bindings. Create RAW processing module that can read various camera RAW formats (Canon CR2, Nikon NEF, Sony ARW). Implement RAW to high-quality JPEG conversion with 95% quality setting. Add error handling for unsupported RAW formats and corrupted files. Test with sample RAW files from different camera manufacturers.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement sharp-based image optimization and format conversion",
+            "description": "Set up Sharp library for image optimization and implement conversion to WebP format for web delivery",
+            "dependencies": [
+              "9.1"
+            ],
+            "details": "Install and configure Sharp library for high-performance image processing. Implement JPEG to WebP conversion with optimal quality settings for web delivery. Add image optimization features including compression and quality adjustment. Create format detection and automatic conversion pipeline. Implement error handling for unsupported formats and processing failures.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Create multi-size preview generation system",
+            "description": "Build system to generate multiple preview sizes (thumbnail, medium, large) while preserving aspect ratios",
+            "dependencies": [
+              "9.2"
+            ],
+            "details": "Implement preview generation for three sizes: thumbnail (200x200), medium (800x600), and large (1920x1080). Add aspect ratio preservation logic to prevent image distortion. Create smart cropping and resizing algorithms. Implement batch preview generation for efficiency. Add preview quality optimization for different use cases (web thumbnails vs high-quality previews).",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Add EXIF data extraction and metadata storage",
+            "description": "Implement EXIF data extraction from images and store metadata in database JSONB field",
+            "dependencies": [
+              "9.1"
+            ],
+            "details": "Install and configure EXIF extraction library (exifr or piexifjs). Extract comprehensive EXIF data including camera settings, GPS coordinates, timestamps, and technical parameters. Parse and normalize EXIF data into structured JSON format. Store extracted metadata in database JSONB field for efficient querying. Handle images without EXIF data gracefully.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Handle LOG format images with color space conversion",
+            "description": "Implement LOG format image processing with proper color space conversion and gamma correction",
+            "dependencies": [
+              "9.2"
+            ],
+            "details": "Add support for LOG format images (S-Log, V-Log, etc.) commonly used in professional video/photo workflows. Implement color space conversion from LOG to standard RGB color spaces (sRGB, Rec.709). Add gamma correction and tone mapping for proper display. Create LOG format detection and automatic processing pipeline. Test with various LOG format samples and validate color accuracy.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Organize processed images in R2 storage with proper structure",
+            "description": "Implement organized folder structure in R2 'processed' bucket for storing processed images by type and size",
+            "dependencies": [
+              "9.3",
+              "9.4",
+              "9.5"
+            ],
+            "details": "Create organized folder structure in R2 'processed' bucket: /processed/{file_type}/{size}/{filename}. Implement file naming conventions with unique identifiers. Add metadata tracking for processed file locations. Create cleanup routines for orphaned processed files. Implement efficient batch upload to R2 storage. Add progress tracking for storage operations and error handling for upload failures.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Build Video Player Component",
+        "description": "Create TypeScript video player component with HLS support and adaptive streaming capabilities, served via Cloudflare Assets",
+        "status": "pending",
+        "dependencies": [
+          8
+        ],
+        "priority": "medium",
+        "details": "Build custom video player using vanilla TypeScript and native HTML5 video element with HLS.js for adaptive streaming support. Implement player controls: play/pause, seek, volume, fullscreen, quality selection. Add thumbnail preview on hover over progress bar. Support keyboard shortcuts (space for play/pause, arrow keys for seek). Implement player state management with playback position persistence using localStorage. Add loading states and error handling for failed streams. Style with custom CSS to match application design. Include accessibility features (ARIA labels, keyboard navigation). Deploy as static assets through Cloudflare Assets for optimal performance and global distribution.",
+        "testStrategy": "Test HLS playback with different quality levels, verify adaptive bitrate switching with HLS.js, test player controls and keyboard shortcuts, validate accessibility features, test error handling for broken streams, verify TypeScript compilation and Cloudflare Assets deployment",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Build Image Viewer Component",
+        "description": "Create TypeScript image viewer with zoom, pan, and navigation capabilities for processed images, served via Cloudflare Assets",
+        "status": "pending",
+        "dependencies": [
+          9
+        ],
+        "priority": "medium",
+        "details": "Build custom image viewer using vanilla TypeScript and native browser APIs, served through Cloudflare Assets for optimal performance. Implement zoom functionality using CSS transforms and wheel/touch events. Add pan capability with mouse drag and touch gestures using native pointer events. Support multiple image sizes (thumbnail, medium, large) with progressive loading using Intersection Observer API. Create zoom controls (fit, fill, actual size, custom zoom levels) with TypeScript classes for state management. Include navigation controls (previous/next, thumbnail strip) using DOM manipulation. Support keyboard navigation (arrow keys, +/- for zoom, escape to close) with native event listeners. Add loading states with skeleton placeholders using CSS animations. Implement lazy loading for image galleries using Intersection Observer. Include EXIF data display panel with metadata extraction. Use TypeScript for type safety and compile to ES modules for modern browser support.",
+        "testStrategy": "Test image loading and progressive enhancement with native APIs, verify zoom and pan functionality using CSS transforms, test keyboard navigation with event listeners, validate EXIF data display, test performance with large images, verify TypeScript compilation and Cloudflare Assets deployment, test touch gestures on mobile devices",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Implement File Management API",
+        "description": "Build comprehensive API endpoints for file listing, searching, and metadata management",
+        "details": "Create REST API endpoints: GET /api/files with pagination (cursor-based), filtering (file_type, upload_status), and sorting (created_at, file_size). Implement GET /api/files/:id for individual file details. Add search functionality with full-text search on filename and metadata. Create file operations: DELETE /api/files/:id with cascade deletion of processed files. Implement batch operations: POST /api/files/batch-delete and GET /api/files/batch-download. Add file statistics endpoint GET /api/stats (total files, storage used, processing queue length). Include proper error handling and validation using Zod schemas.",
+        "testStrategy": "Test pagination with large datasets, verify search functionality, test file deletion and cleanup, validate batch operations, test API performance and response times",
+        "priority": "medium",
+        "dependencies": [
+          3,
+          8,
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Build File Management Interface",
+        "description": "Create TypeScript interface for browsing, searching, and managing uploaded files with infinite scroll served via Cloudflare Assets",
+        "status": "pending",
+        "dependencies": [
+          10,
+          11,
+          12
+        ],
+        "priority": "medium",
+        "details": "Build file management dashboard using vanilla TypeScript and native browser APIs, served via Cloudflare Assets. Implement infinite scroll using Intersection Observer API for performance. Create file grid/list view toggle with responsive CSS Grid and Flexbox. Add search bar with debounced input using setTimeout and filter controls (file type, date range, status) with native DOM manipulation. Create multi-select functionality with checkbox selection and bulk action toolbar using event delegation. Implement file preview modal with native HTML5 image viewer and video player. Add file details sidebar with metadata, processing status, and download options using fetch API. Use native fetch with proper caching headers for data fetching. Implement optimistic updates using DOM manipulation for better UX.",
+        "testStrategy": "Test infinite scroll performance with thousands of files using Intersection Observer, verify search and filtering with native DOM methods, test multi-select functionality with event delegation, validate preview modal with HTML5 media elements, test responsive design on mobile devices, verify Cloudflare Assets serving and caching",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Implement Batch Operations System",
+        "description": "Build batch download and management features with ZIP generation and progress tracking",
+        "details": "Create batch download system that generates ZIP files on-demand using streaming ZIP library (node-stream-zip). Implement POST /api/files/batch-download endpoint that accepts file IDs array and returns download URL. Use Cloudflare Workers with streaming response for large ZIP files. Add progress tracking for ZIP generation with WebSocket or Server-Sent Events. Implement batch operations UI with progress bars and cancellation support. Add batch delete functionality with confirmation dialog. Include download history tracking and cleanup of generated ZIP files after 24 hours.",
+        "testStrategy": "Test ZIP generation with various file sizes and types, verify streaming download performance, test progress tracking accuracy, validate batch delete functionality, test cleanup of temporary files",
+        "priority": "low",
+        "dependencies": [
+          13
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Optimize Performance and Implement Caching",
+        "description": "Implement comprehensive caching strategy and performance optimizations for production deployment",
+        "details": "Implement multi-layer caching: Cloudflare CDN for static assets and processed files, Redis-compatible KV storage for API responses, browser caching with proper cache headers. Add image optimization with next/image and responsive images. Implement lazy loading for file lists and previews. Add service worker for offline functionality and background sync. Optimize database queries with proper indexing and connection pooling. Implement rate limiting using Cloudflare Workers KV. Add monitoring with Cloudflare Analytics and custom metrics. Configure auto-scaling for processing containers based on queue depth.",
+        "testStrategy": "Test caching effectiveness with cache hit rates, verify performance improvements with Lighthouse scores, test offline functionality, validate rate limiting, monitor resource usage and scaling behavior",
+        "priority": "low",
+        "dependencies": [
+          14
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-09-12T08:19:09.171Z",
+      "updated": "2025-09-12T09:44:35.603Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
