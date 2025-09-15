@@ -6,19 +6,28 @@
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "drizzle-kit migrate",
+		"db:push": "drizzle-kit push",
+		"db:studio": "drizzle-kit studio"
 	},
 	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20250913.0",
 		"@types/node": "^24.3.1",
 		"typescript": "5.8.3",
 		"wrangler": "^4.35.0"
 	},
 	"dependencies": {
 		"@cloudflare/containers": "^0.0.19",
+		"@hono/zod-openapi": "^1.1.0",
 		"@neondatabase/serverless": "^1.0.1",
+		"@scalar/hono-api-reference": "^0.9.18",
+		"@types/pg": "^8.15.5",
 		"drizzle-kit": "^0.31.4",
 		"drizzle-orm": "^0.44.5",
 		"hono": "4.8.2",
+		"pg": "^8.16.3",
 		"postgres": "^3.4.7"
 	},
 	"cloudflare": {

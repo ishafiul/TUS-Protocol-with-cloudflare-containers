@@ -3,61 +3,661 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloudflare Container Worker</title>
+    <title>TUS File Upload - Cloudflare Container Worker</title>
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
             background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
-        h1 {
-            color: #f38020;
+        
+        .header {
+            background: linear-gradient(135deg, #f38020 0%, #ff6b35 100%);
+            color: white;
+            padding: 30px;
             text-align: center;
         }
-        .endpoint {
-            background: #f8f9fa;
-            padding: 15px;
-            margin: 10px 0;
-            border-left: 4px solid #f38020;
-            border-radius: 4px;
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
         }
-        code {
-            background: #e9ecef;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: monospace;
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .upload-section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title::before {
+            content: '📁';
+            margin-right: 10px;
+        }
+        
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .config-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .config-item label {
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+        
+        .config-item input {
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .config-item input:focus {
+            outline: none;
+            border-color: #f38020;
+            box-shadow: 0 0 0 3px rgba(243, 128, 32, 0.1);
+        }
+        
+        .file-upload-area {
+            border: 3px dashed #cbd5e0;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 30px;
+            background: #f7fafc;
+        }
+        
+        .file-upload-area:hover {
+            border-color: #f38020;
+            background: #fff5f0;
+        }
+        
+        .file-upload-area.dragover {
+            border-color: #f38020;
+            background: #fff5f0;
+            transform: scale(1.02);
+        }
+        
+        .file-upload-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        
+        .file-upload-text {
+            font-size: 1.2rem;
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+        
+        .file-upload-subtext {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .selected-file {
+            background: #e6fffa;
+            border: 2px solid #38b2ac;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .selected-file.show {
+            display: block;
+        }
+        
+        .file-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .file-details {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .file-name {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        
+        .file-size {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #edf2f7;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f38020, #ff6b35);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #f38020, #ff6b35);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(243, 128, 32, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .upload-list {
+            margin-top: 40px;
+        }
+        
+        .upload-item {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .upload-item-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .upload-item-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+        
+        .upload-item-details h4 {
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+        
+        .upload-item-details p {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert.show {
+            display: block;
+        }
+        
+        .alert-warning {
+            background: #fffaf0;
+            border: 2px solid #fbd38d;
+            color: #c05621;
+        }
+        
+        .alert-error {
+            background: #fed7d7;
+            border: 2px solid #fc8181;
+            color: #c53030;
+        }
+        
+        .alert-success {
+            background: #f0fff4;
+            border: 2px solid #68d391;
+            color: #276749;
+        }
+        
+        @media (max-width: 768px) {
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .file-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Cloudflare Container Worker</h1>
-        <p>This is a static HTML file served from the public folder!</p>
-        
-        <h2>Available Endpoints:</h2>
-        <div class="endpoint">
-            <strong>Container Routes:</strong><br>
-            <code>GET /container/{id}</code> - Start a container for specific ID<br>
-            <code>GET /container/{id}/health</code> - Check container health<br>
-            <code>GET /container/{id}/env</code> - Show container environment
+        <div class="header">
+            <h1>🚀 TUS File Upload</h1>
+            <p>Resumable file uploads with the TUS protocol</p>
         </div>
         
-        <div class="endpoint">
-            <strong>Utility Routes:</strong><br>
-            <code>GET /lb</code> - Load balance requests<br>
-            <code>GET /singleton</code> - Get single container instance<br>
-            <code>GET /error</code> - Test error handling
+        <div class="content">
+            <div id="support-alert" class="alert alert-warning">
+                <strong>⚠️ Warning!</strong> Your browser does not seem to support the features necessary to run tus-js-client. The upload may fail silently.
+            </div>
+            
+            <div class="upload-section">
+                <h2 class="section-title">Upload Configuration</h2>
+                
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label for="endpoint">Upload Endpoint:</label>
+                        <input type="text" id="endpoint" value="/api/files/attachments" />
+                    </div>
+                    
+                    <div class="config-item">
+                        <label for="chunksize">Chunk Size (bytes):</label>
+                        <input type="number" id="chunksize" value="524288" />
+                    </div>
+                    
+                    <div class="config-item">
+                        <label for="paralleluploads">Parallel Requests:</label>
+                        <input type="number" id="paralleluploads" value="1" min="1" max="10" />
+                    </div>
+                </div>
+                
+                <div class="file-upload-area" id="upload-area">
+                    <div class="file-upload-icon">📎</div>
+                    <div class="file-upload-text">Drop files here or click to browse</div>
+                    <div class="file-upload-subtext">Supports resumable uploads for large files</div>
+                </div>
+                
+                <input type="file" id="file-input" class="file-input" multiple>
+                
+                <div id="selected-file" class="selected-file">
+                    <div class="file-info">
+                        <div class="file-details">
+                            <div class="file-name" id="file-name"></div>
+                            <div class="file-size" id="file-size"></div>
+                        </div>
+                        <button class="btn btn-secondary" id="clear-file">✕ Clear</button>
+                    </div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span id="progress-percentage">0%</span>
+                            <span id="progress-speed"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="controls">
+                        <button class="btn btn-primary" id="toggle-btn">Start Upload</button>
+                        <button class="btn btn-secondary" id="cancel-btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="upload-section">
+                <h2 class="section-title">📥 Completed Uploads</h2>
+                <div id="upload-list">
+                    <p style="color: #718096; text-align: center; padding: 20px;">
+                        Successful uploads will appear here. Try uploading a file!
+                    </p>
+                </div>
+            </div>
         </div>
-        
-        <p><em>Try accessing <code>/container/test</code> to see your container in action!</em></p>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tus-js-client@latest/dist/tus.min.js"></script>
+    <script>
+        let upload = null;
+        let uploadIsRunning = false;
+        let startTime = null;
+        
+        // DOM elements
+        const toggleBtn = document.getElementById('toggle-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const clearBtn = document.getElementById('clear-file');
+        const fileInput = document.getElementById('file-input');
+        const uploadArea = document.getElementById('upload-area');
+        const selectedFileDiv = document.getElementById('selected-file');
+        const progressFill = document.getElementById('progress-fill');
+        const progressPercentage = document.getElementById('progress-percentage');
+        const progressSpeed = document.getElementById('progress-speed');
+        const alertBox = document.getElementById('support-alert');
+        const uploadList = document.getElementById('upload-list');
+        const endpointInput = document.getElementById('endpoint');
+        const chunkInput = document.getElementById('chunksize');
+        const parallelInput = document.getElementById('paralleluploads');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        
+        // Utility functions
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function formatSpeed(bytesPerSecond) {
+            return formatBytes(bytesPerSecond) + '/s';
+        }
+        
+        function reset() {
+            fileInput.value = '';
+            selectedFileDiv.classList.remove('show');
+            toggleBtn.textContent = 'Start Upload';
+            upload = null;
+            uploadIsRunning = false;
+            startTime = null;
+            progressFill.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            progressSpeed.textContent = '';
+        }
+        
+        function showAlert(message, type = 'error') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} show`;
+            alertDiv.innerHTML = `<strong>${type === 'error' ? '❌' : '✅'}</strong> ${message}`;
+            document.querySelector('.content').insertBefore(alertDiv, document.querySelector('.upload-section'));
+            
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+        
+        function askToResumeUpload(previousUploads, currentUpload) {
+            if (previousUploads.length === 0) return;
+            
+            let text = 'You tried to upload this file previously at these times:\n\n';
+            previousUploads.forEach((previousUpload, index) => {
+                text += `[${index}] ${previousUpload.creationTime}\n`;
+            });
+            text += '\nEnter the corresponding number to resume an upload or press Cancel to start a new upload';
+            
+            const answer = prompt(text);
+            const index = Number.parseInt(answer, 10);
+            
+            if (!Number.isNaN(index) && previousUploads[index]) {
+                currentUpload.resumeFromPreviousUpload(previousUploads[index]);
+            }
+        }
+        
+        function selectFile(file) {
+            if (!file) return;
+            
+            fileName.textContent = file.name;
+            fileSize.textContent = formatBytes(file.size);
+            selectedFileDiv.classList.add('show');
+            
+            // Reset progress
+            progressFill.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            progressSpeed.textContent = '';
+        }
+        
+        function startUpload() {
+            const file = fileInput.files[0];
+            if (!file) return;
+            
+            const endpoint = endpointInput.value;
+            let chunkSize = Number.parseInt(chunkInput.value, 10);
+            if (Number.isNaN(chunkSize)) {
+                chunkSize = Number.POSITIVE_INFINITY;
+            }
+            
+            let parallelUploads = Number.parseInt(parallelInput.value, 10);
+            if (Number.isNaN(parallelUploads)) {
+                parallelUploads = 1;
+            }
+            
+            toggleBtn.textContent = 'Pause Upload';
+            startTime = Date.now();
+            
+            const options = {
+                endpoint,
+                chunkSize,
+                // headers: {
+                //     'Authorization': 'Bearer demo-token', // Auth disabled for demo
+                // },
+                retryDelays: [0, 1000, 3000, 5000],
+                parallelUploads,
+                metadata: {
+                    filename: file.name,
+                    filetype: file.type,
+                },
+                onError(error) {
+                    console.error('Upload error:', error);
+                    if (error.originalRequest) {
+                        if (window.confirm(`Upload failed: ${error}\n\nDo you want to retry?`)) {
+                            upload.start();
+                            uploadIsRunning = true;
+                            return;
+                        }
+                    } else {
+                        showAlert(`Upload failed: ${error}`, 'error');
+                    }
+                    reset();
+                },
+                onProgress(bytesUploaded, bytesTotal) {
+                    const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(1);
+                    progressFill.style.width = `${percentage}%`;
+                    progressPercentage.textContent = `${percentage}%`;
+                    
+                    if (startTime) {
+                        const elapsed = (Date.now() - startTime) / 1000;
+                        const speed = bytesUploaded / elapsed;
+                        progressSpeed.textContent = formatSpeed(speed);
+                    }
+                    
+                    console.log(`Progress: ${percentage}% (${formatBytes(bytesUploaded)}/${formatBytes(bytesTotal)})`);
+                },
+                onSuccess() {
+                    console.log('Upload completed successfully');
+                    
+                    // Add to upload list
+                    const uploadItem = document.createElement('div');
+                    uploadItem.className = 'upload-item';
+                    uploadItem.innerHTML = `
+                        <div class="upload-item-info">
+                            <div class="upload-item-icon">✅</div>
+                            <div class="upload-item-details">
+                                <h4>${file.name}</h4>
+                                <p>Size: ${formatBytes(file.size)} • Uploaded successfully</p>
+                            </div>
+    </div>
+                        <a href="${upload.url || '#'}" class="btn btn-primary" target="_blank">Download</a>
+                    `;
+                    
+                    // Replace placeholder text if it exists
+                    const placeholder = uploadList.querySelector('p');
+                    if (placeholder) {
+                        placeholder.remove();
+                    }
+                    
+                    uploadList.appendChild(uploadItem);
+                    showAlert('File uploaded successfully!', 'success');
+                    reset();
+                },
+            };
+            
+            upload = new tus.Upload(file, options);
+            
+            upload.findPreviousUploads().then((previousUploads) => {
+                askToResumeUpload(previousUploads, upload);
+                upload.start();
+                uploadIsRunning = true;
+            });
+        }
+        
+        // Event listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                selectFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                selectFile(file);
+            }
+        });
+        
+        toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            if (upload) {
+                if (uploadIsRunning) {
+                    upload.abort();
+                    toggleBtn.textContent = 'Resume Upload';
+                    uploadIsRunning = false;
+                } else {
+                    upload.start();
+                    toggleBtn.textContent = 'Pause Upload';
+                    uploadIsRunning = true;
+                }
+            } else if (fileInput.files.length > 0) {
+                startUpload();
+            } else {
+                fileInput.click();
+            }
+        });
+        
+        cancelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (upload) {
+                upload.abort();
+                showAlert('Upload cancelled', 'warning');
+                reset();
+            }
+        });
+        
+        clearBtn.addEventListener('click', () => {
+            reset();
+        });
+        
+        // Check TUS support
+        if (!tus.isSupported) {
+            alertBox.classList.add('show');
+        }
+    </script>
 </body>
 </html>

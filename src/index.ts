@@ -1,105 +1,75 @@
-import { Container, getContainer, getRandom } from "@cloudflare/containers";
+import { Container, } from "@cloudflare/containers";
 import { Hono } from "hono";
+import { HonoTypes } from "./type/env";
+import { OpenAPIHono } from "@hono/zod-openapi";
+import { cors } from "hono/cors";
+import { Scalar } from "@scalar/hono-api-reference";
+import uploadRoute from "./module/upload/route";
+import { ContainerService } from "./services/containerService";
+import type { QueueMessage } from "./services/queueService";
+import { MyContainer } from "./container/MyContainer";
+import { getContainer } from "@cloudflare/containers";
+export { AttachmentUploadHandler, UploadHandler } from './tus/uploadHandler'
+export { MyContainer } from './container/MyContainer'
 
-export class MyContainer extends Container<Env> {
-  // Port the container listens on (default: 8080)
-  defaultPort = 8080;
-  // Time before container sleeps due to inactivity (default: 30s)
-  sleepAfter = "5m";
-  // Environment variables passed to the container
-  envVars = {
-    MESSAGE: "I was passed in via the container class!",
-  };
+const app = new OpenAPIHono<HonoTypes>();
 
-  // Optional lifecycle hooks
-  override onStart() {
-    console.log("Container successfully started");
-  }
-
-  override onStop() {
-    console.log("Container successfully shut down");
-  }
-
-  override onError(error: unknown) {
-    console.log("Container error:", error);
-  }
-}
-
-// Create Hono app with proper typing for Cloudflare Workers
-const app = new Hono<{
-  Bindings: Env;
-}>();
-
-// Home route - serve static HTML file
 app.get("/", async (c) => {
   return c.env.ASSETS.fetch(new Request(c.req.url));
 });
-
-// API info route
-app.get("/api/info", (c) => {
-  return c.text(
-    "Available endpoints:\n" +
-      "GET /container/<ID> - Start a Node.js TypeScript container for each ID with a 5m timeout\n" +
-      "GET /container/<ID>/health - Check container health\n" +
-      "GET /container/<ID>/env - Show container environment\n" +
-      "GET /lb - Load balance requests over multiple containers\n" +
-      "GET /error - Start a container that errors (demonstrates error handling)\n" +
-      "GET /singleton - Get a single specific container instance",
-  );
+app.use("*", cors());
+app.openAPIRegistry.registerComponent("securitySchemes", "AUTH", {
+  type: "http",
+  name: "Authorization",
+  scheme: "bearer",
+  in: "header",
+  description: "Bearer token",
 });
 
-// Route requests to a specific container using the container ID
-app.get("/container/:id", async (c) => {
-  const id = c.req.param("id");
-  const containerId = c.env.MY_CONTAINER.idFromName(`/container/${id}`);
-  console.log(containerId)
-  const container = c.env.MY_CONTAINER.get(containerId);
-  const url = new URL(c.req.url);
-  url.pathname = `/${id}`;
-  const containerRequest = new Request(url.toString(), c.req);
-  const response = await container.fetch(containerRequest);
-  console.log(response)
-  return response;
+
+app.doc("/docs.json", {
+  info: {
+    title: "API Documentation",
+    version: "v1",
+  },
+  openapi: "3.1.0",
 });
 
-// Route requests to container health endpoint
-app.get("/container/:id/health", async (c) => {
-  const id = c.req.param("id");
-  const containerId = c.env.MY_CONTAINER.idFromName(`/container/${id}`);
-  const container = c.env.MY_CONTAINER.get(containerId);
-  const url = new URL(c.req.url);
-  url.pathname = "/health";
-  const healthRequest = new Request(url.toString(), c.req);
-  return await container.fetch(healthRequest);
-});
+app.get('/docs', Scalar({ url: '/docs.json' }))
 
-// Route requests to container env endpoint
-app.get("/container/:id/env", async (c) => {
-  const id = c.req.param("id");
-  const containerId = c.env.MY_CONTAINER.idFromName(`/container/${id}`);
-  const container = c.env.MY_CONTAINER.get(containerId);
-  const url = new URL(c.req.url);
-  url.pathname = "/env";
-  const envRequest = new Request(url.toString(), c.req);
-  return await container.fetch(envRequest);
-});
+const apiApp = new OpenAPIHono<HonoTypes>();
+uploadRoute(apiApp);
+app.route('/api', apiApp)
 
-// Demonstrate error handling - this route forces a panic in the container
-app.get("/error", async (c) => {
-  const container = getContainer(c.env.MY_CONTAINER, "error-test");
-  return await container.fetch(c.req.raw);
-});
-
-// Load balance requests across multiple containers
-app.get("/lb", async (c) => {
-  const container = await getRandom(c.env.MY_CONTAINER, 3);
-  return await container.fetch(c.req.raw);
-});
-
-// Get a single container instance (singleton pattern)
-app.get("/singleton", async (c) => {
-  const container = getContainer(c.env.MY_CONTAINER);
-  return await container.fetch(c.req.raw);
-});
-
-export default app;
+export default {
+  ...app,
+  async queue(batch: MessageBatch<QueueMessage>, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log(`🔄 Processing queue batch: ${batch.messages.length} messages`);
+    
+    try {
+      // Get a container instance using getContainer
+      const container = getContainer(env.MY_CONTAINER);
+      const containerService = new ContainerService(container);
+      
+      // Process all messages in the batch
+      const messages = batch.messages.map(msg => msg.body);
+      const results = await containerService.processBatch(messages);
+      
+      // Log results
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.length - successCount;
+      
+      console.log(`✅ Queue batch processed: ${successCount} successful, ${failureCount} failed`);
+      
+      // Acknowledge all messages (successful or failed)
+      // Cloudflare Queues will handle retries automatically based on configuration
+      batch.ackAll();
+      
+    } catch (error) {
+      console.error(`❌ Queue batch processing failed:`, error);
+      
+      // Reject all messages to trigger retry
+      batch.retryAll();
+    }
+  }
+};
