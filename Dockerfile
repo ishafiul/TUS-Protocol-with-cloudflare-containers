@@ -25,6 +25,22 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/package*.json ./
 RUN npm ci --only=production
 
+# Set environment variables with defaults
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Database configuration
+ENV POSTGRES_CONNECTION_STRING=""
+
+# R2 Storage configuration
+ENV R2_BUCKET_NAME="attachments"
+ENV R2_ENDPOINT=""
+ENV R2_ACCESS_KEY_ID=""
+ENV R2_SECRET_ACCESS_KEY=""
+
+# Optional: Message for process endpoint
+ENV MESSAGE="CF Container App"
+
 EXPOSE 8080
 
 # Run the compiled JavaScript application

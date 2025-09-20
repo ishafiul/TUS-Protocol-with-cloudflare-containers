@@ -29,7 +29,7 @@
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
 	 */
 	"vars": {
-		"AUTH_TOKEN": "demo-auth-token-change-in-production"
+		"DATABASE_URL": ""
 	},
 	/**
 	 * Note: Use secrets to store sensitive data.
@@ -59,12 +59,6 @@
 	 * https://developers.cloudflare.com/queues/configuration/
 	 */
 	"queues": {
-		"producers": [
-			{
-				"binding": "FILE_PROCESSING_QUEUE",
-				"queue": "file-processing-queue"
-			}
-		],
 		"consumers": [
 			{
 				"queue": "file-processing-queue",
@@ -73,6 +67,12 @@
 				"retry_delay": 5,
 				"dead_letter_queue": "file-processing-dlq"
 			}
+		],
+		"producers": [
+			{
+				"binding": "FILE_PROCESSING_QUEUE",
+				"queue": "file-processing-queue"
+			}
 		]
 	},
 	/**
@@ -80,13 +80,13 @@
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
 	 */
 	// "services": [{ "binding": "MY_SERVICE", "service": "my-service" }]
-	"containers": [
-		{
-			"class_name": "MyContainer",
-			"image": "./Dockerfile",
-			"max_instances": 10
-		}
-	],
+	// "containers": [
+	// 	{
+	// 		"binding": "MY_CONTAINER",
+	// 		"image": "./Dockerfile",
+	// 		"max_instances": 10
+	// 	}
+	// ],
 	"durable_objects": {
 		"bindings": [
 			{

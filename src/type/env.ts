@@ -5,7 +5,7 @@ import type { R2Bucket, DurableObjectNamespace } from '@cloudflare/workers-types
 import type { QueueMessage } from '../services/queueService';
 
 export type Env = {
-  DB_URL: string;
+  DATABASE_URL: string;
   ASSETS: Fetcher;
   MY_CONTAINER: DurableObjectNamespace<MyContainer>;
   AUTH_TOKEN: string;

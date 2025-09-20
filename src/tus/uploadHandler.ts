@@ -6,11 +6,11 @@ import type { R2UploadedPart, DurableObjectState } from '@cloudflare/workers-typ
 import type { Context } from 'hono'
 import { isProcessableFile, getFileCategory, type FileInfo } from '../utils/fileTypeDetection'
 import { QueueService, type QueueMessage } from '../services/queueService'
+import { DatabaseService } from '../services/databaseService'
 import {
   ALLOWED_HEADERS,
   ALLOWED_METHODS,
   AsyncLock,
-  Bindings,
   EXPOSED_HEADERS,
   generateParts,
   readIntFromHeader,
@@ -24,6 +24,7 @@ import {
   RetryMultipartUpload,
 } from './retry'
 import {parseChecksum, parseUploadMetadata} from "./parse";
+import { Env } from '../type/env'
 
 export const TUS_VERSION = '1.0.0'
 
@@ -98,7 +99,7 @@ function optionsHandler(c: Context): Response {
 
 export class UploadHandler {
   state: DurableObjectState
-  env: Bindings
+  env: Env
   router: Hono
   parts: StoredR2Part[]
   multipart: RetryMultipartUpload | undefined
@@ -107,7 +108,7 @@ export class UploadHandler {
   // only allow a single request to operate at a time
   requestGate: AsyncLock
 
-  constructor(state: DurableObjectState, env: Bindings) {
+  constructor(state: DurableObjectState, env: Env) {
     const bucket = env.ATTACHMENT_BUCKET
     this.state = state
     this.env = env
@@ -421,7 +422,7 @@ export class UploadHandler {
             await this.r2Put(r2Key, part.bytes, checksum)
             uploadOffset += part.bytes.byteLength
             console.log('🧹 Single-part upload completed, cleaning up');
-            await this.cleanup()
+            await this.cleanup(r2Key)
           }
           else {
             // upload the last part (can be less than the 5mb min part size), then complete the upload
@@ -429,7 +430,7 @@ export class UploadHandler {
             this.parts.push({ part: uploadedPart, length: part.bytes.byteLength })
             await this.r2CompleteMultipartUpload(r2Key, await digester.digest(), checksum)
             uploadOffset += part.bytes.byteLength
-            await this.cleanup()
+            await this.cleanup(r2Key)
           }
           break
         }
@@ -549,7 +550,9 @@ export class UploadHandler {
   async r2Put(r2Key: string, bytes: Uint8Array, checksum?: Uint8Array) {
     console.log('🔍 r2Put called:', { r2Key, bytesLength: bytes.length, hasChecksum: !!checksum });
     try {
-      const result = await this.retryBucket.put(r2Key, bytes, checksum);
+      // Convert Uint8Array checksum to string if provided
+      const checksumString = checksum ? toBase64(checksum) : undefined;
+      const result = await this.retryBucket.put(r2Key, bytes, checksumString);
       console.log('✅ r2Put successful:', { r2Key, result });
       return result;
     }
@@ -661,18 +664,48 @@ export class UploadHandler {
         uploadedAt: new Date().toISOString()
       }
 
-      // Check if file should be processed
+      // Store file in database
+      try {
+        const db = new DatabaseService(this.env);
+        const category = getFileCategory(fileInfo);
+        
+        const fileRecord = await db.createFile({
+          filename: fileInfo.filename,
+          originalFilename: fileInfo.filename,
+          filetype: fileInfo.filetype,
+          size: fileInfo.size,
+          r2Key: fileInfo.r2Key,
+          category: category,
+          status: 'uploaded'
+        });
+        
+        console.log(`📁 File stored in database: ${fileRecord.id}`);
+        
+        // Create processing job
+        await db.createProcessingJob({
+          fileId: fileRecord.id,
+          jobType: category === 'raw_image' ? 'raw_image_processing' : 'video_transcoding',
+          status: 'pending',
+          priority: 0
+        });
+        
+      } catch (dbError) {
+        console.error(`❌ Failed to store file in database: ${r2Key}`, dbError);
+        // Continue with queue processing even if DB fails
+      }
+
+      // Check if file should be processed (only for queue, not database storage)
       if (!isProcessableFile(fileInfo)) {
-        console.log(`⏭️ File not processable: ${fileInfo.filename}`)
+        console.log(`⏭️ File not processable for queue processing: ${fileInfo.filename}`)
         return
       }
 
-      // Get file category
+      // Get file category for queue processing
       const category = getFileCategory(fileInfo)
       
       // Only send to queue if it's a processable category (not 'other')
       if (category === 'other') {
-        console.log(`⏭️ File category 'other' not processable: ${fileInfo.filename}`)
+        console.log(`⏭️ File category 'other' not processable for queue: ${fileInfo.filename}`)
         return
       }
       
@@ -697,7 +730,7 @@ export class UploadHandler {
 }
 
 export class AttachmentUploadHandler extends UploadHandler {
-  constructor(state: DurableObjectState, env: Bindings) {
+  constructor(state: DurableObjectState, env: Env) {
     super(state, env)
   }
 }

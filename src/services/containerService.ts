@@ -1,4 +1,5 @@
 import { QueueMessage } from './queueService';
+import { getContainer } from "@cloudflare/containers";
 
 export interface ProcessingResult {
   success: boolean;
@@ -8,32 +9,32 @@ export interface ProcessingResult {
 }
 
 export class ContainerService {
-  constructor(private container: any) {}
+  constructor(private containerDO: any) {}
 
   async processFile(message: QueueMessage): Promise<ProcessingResult> {
     const startTime = Date.now();
-    
+
     try {
       console.log(`🔄 Processing file: ${message.fileInfo.filename} (${message.category})`);
-      
+
       // Create a request to the container's /process endpoint
-      // The container will automatically route this to its default port (8080)
-      const request = new Request('http://container/process', {
+      // Using DurableObject stub instead of container
+      const requestBody = JSON.stringify({
+        fileInfo: message.fileInfo,
+        category: message.category,
+        timestamp: message.timestamp,
+        retryCount: message.retryCount || 0
+      });
+
+      // Use the container's fetch method with a relative path
+      const response = await this.containerDO.fetch('/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'User-Agent': 'Cloudflare-Worker-Queue-Processor/1.0'
         },
-        body: JSON.stringify({
-          fileInfo: message.fileInfo,
-          category: message.category,
-          timestamp: message.timestamp,
-          retryCount: message.retryCount || 0
-        })
+        body: requestBody
       });
-
-      // Use the container's fetch method to forward the request
-      const response = await this.container.fetch(request);
       const processingTime = Date.now() - startTime;
 
       if (!response.ok) {

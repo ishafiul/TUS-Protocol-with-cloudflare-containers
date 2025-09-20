@@ -116,6 +116,7 @@ export type Bindings = {
   ATTACHMENT_BUCKET: R2Bucket
   AUTH_TOKEN: string
   FILE_PROCESSING_QUEUE: Queue<QueueMessage>
+  DATABASE_URL: string
 }
 
 

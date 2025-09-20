@@ -19,6 +19,7 @@
 		"wrangler": "^4.35.0"
 	},
 	"dependencies": {
+		"@aws-sdk/client-s3": "^3.891.0",
 		"@cloudflare/containers": "^0.0.19",
 		"@hono/zod-openapi": "^1.1.0",
 		"@neondatabase/serverless": "^1.0.1",
